@@ -970,9 +970,14 @@
       border-color: var(--gold)
     }
 
-    .rsvp-yes:hover {
+    .rsvp-yes:hover:not(:disabled) {
       background: var(--maroon-light);
       transform: translateY(-1px)
+    }
+
+    .rsvp-yes:disabled {
+      opacity: .6;
+      cursor: not-allowed;
     }
 
     .rsvp-no {
@@ -981,8 +986,13 @@
       border-color: rgba(107, 26, 26, .3)
     }
 
-    .rsvp-no:hover {
+    .rsvp-no:hover:not(:disabled) {
       background: rgba(107, 26, 26, .08)
+    }
+
+    .rsvp-no:disabled {
+      opacity: .6;
+      cursor: not-allowed;
     }
 
     .rsvp-close {
@@ -1004,6 +1014,36 @@
       display: none;
       margin-top: 8px
     }
+
+    /* RSVP already submitted banner */
+    .rsvp-already {
+      background: linear-gradient(135deg, rgba(107,26,26,.08), rgba(184,150,46,.08));
+      border: 1px solid rgba(184,150,46,.4);
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      font-size: .82rem;
+      color: var(--maroon-dark);
+      display: none;
+    }
+
+    .rsvp-already.show { display: block }
+
+    /* spinner */
+    .rsvp-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(240,224,168,.4);
+      border-top-color: var(--gold-pale);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg) } }
 
     /* ── SIGNOFF ── */
     .signoff {
@@ -1393,12 +1433,21 @@
     <div class="rsvp-box">
       <button class="rsvp-close" onclick="closeRSVP()">✕ Close</button>
       <div class="rsvp-title">Join the Celebration</div>
-      <div class="rsvp-sub">Viraj &amp; Devaki's Wedding · 5th July 2026</div>
-      <input class="rsvp-input" id="rsvpName" placeholder="Your name" />
-      <input class="rsvp-input" id="rsvpCount" placeholder="Number of guests" type="number" min="1" max="10" />
-      <div class="rsvp-btns">
-        <button class="rsvp-yes" onclick="submitRSVP(true)">✓ Joyfully Accept</button>
-        <button class="rsvp-no" onclick="submitRSVP(false)">Regretfully Decline</button>
+      <div class="rsvp-sub">Viraj &amp; Devaki's Wedding · 15th July 2026</div>
+      <!-- Already-submitted notice -->
+      <div class="rsvp-already" id="rsvpAlready"></div>
+      <!-- Form -->
+      <div id="rsvpForm">
+        <input class="rsvp-input" id="rsvpName" placeholder="Your full name" />
+        <input class="rsvp-input" id="rsvpCount" placeholder="Number of guests (including you)" type="number" min="1" max="20" />
+        <div class="rsvp-btns">
+          <button class="rsvp-yes" id="btnAccept" onclick="submitRSVP(true)">
+            <span class="rsvp-spinner" id="spinnerAccept"></span>✓ Joyfully Accept
+          </button>
+          <button class="rsvp-no" id="btnDecline" onclick="submitRSVP(false)">
+            <span class="rsvp-spinner" id="spinnerDecline"></span>Regretfully Decline
+          </button>
+        </div>
       </div>
       <div class="rsvp-thanks" id="rsvpThanks"></div>
     </div>
@@ -1452,21 +1501,130 @@
       setTimeout(() => window.open('https://maps.google.com/?q=Jai+Shankar+Festival+Lawns+Nashik', '_blank'), 400);
     }
 
-    // ── RSVP ──
-    function openRSVP() { document.getElementById('rsvpModal').classList.add('open') }
-    function closeRSVP() { document.getElementById('rsvpModal').classList.remove('open'); document.getElementById('rsvpThanks').style.display = 'none'; document.getElementById('rsvpName').value = ''; document.getElementById('rsvpCount').value = '' }
-    function submitRSVP(yes) {
-      const name = document.getElementById('rsvpName').value.trim() || 'Dear Guest';
-      const count = document.getElementById('rsvpCount').value || '1';
-      const t = document.getElementById('rsvpThanks');
-      document.querySelectorAll('.rsvp-btns button').forEach(b => b.style.display = 'none');
-      t.style.display = 'block';
-      t.textContent = yes
-        ? `🙏 Thank you, ${name}! We await you & your ${count} guest(s) with joy.`
-        : `We understand, ${name}. You'll be missed — sending our love!`;
-      for (let i = 0; i < 12; i++) setTimeout(() => spawnSparkleAt(window.innerWidth / 2, window.innerHeight / 2), i * 80);
-      setTimeout(() => { closeRSVP(); document.querySelectorAll('.rsvp-btns button').forEach(b => b.style.display = '') }, 3200);
+    // ── BACKEND CONFIG ─────────────────────────────────────────────────────
+    // Change this to your deployed server URL in production
+    const API_BASE = 'http://localhost:3001/api';
+
+    // ── DEVICE ID ──────────────────────────────────────────────────────────
+    // Persistent fingerprint stored in localStorage
+    function getDeviceId() {
+      let id = localStorage.getItem('__wedding_device_id');
+      if (!id) {
+        // Generate a UUID-like string without external library
+        id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+        localStorage.setItem('__wedding_device_id', id);
+      }
+      return id;
     }
+
+    // ── RSVP ──────────────────────────────────────────────────────────────
+    function openRSVP() {
+      document.getElementById('rsvpModal').classList.add('open');
+      // Check if already submitted when modal opens
+      checkDeviceSubmission();
+    }
+
+    function closeRSVP() {
+      document.getElementById('rsvpModal').classList.remove('open');
+      document.getElementById('rsvpThanks').style.display = 'none';
+      document.getElementById('rsvpName').value = '';
+      document.getElementById('rsvpCount').value = '';
+      document.getElementById('rsvpForm').style.display = '';
+      document.getElementById('rsvpAlready').classList.remove('show');
+      setRsvpBusy(false);
+    }
+
+    function setRsvpBusy(busy) {
+      ['btnAccept', 'btnDecline'].forEach(id => {
+        document.getElementById(id).disabled = busy;
+      });
+    }
+
+    async function checkDeviceSubmission() {
+      try {
+        const deviceId = getDeviceId();
+        const res = await fetch(`${API_BASE}/rsvp/check?deviceId=${encodeURIComponent(deviceId)}`);
+        const data = await res.json();
+        if (data.submitted) showAlreadySubmitted(data.rsvp);
+      } catch (_) { /* offline or server down — allow form */ }
+    }
+
+    function showAlreadySubmitted(rsvp) {
+      const el = document.getElementById('rsvpAlready');
+      const when = rsvp && rsvp.submittedAt
+        ? new Date(rsvp.submittedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })
+        : 'earlier';
+      el.innerHTML = rsvp
+        ? `🙏 <strong>${rsvp.name}</strong> — your RSVP was already recorded on <em>${when}</em>.<br>
+           Status: <strong>${rsvp.attending ? '✓ Attending' : '✗ Declined'}</strong> · ${rsvp.guestCount} guest(s).`
+        : '⚠️ An RSVP from this device has already been submitted.';
+      el.classList.add('show');
+      // Hide the form inputs to prevent re-submission
+      document.getElementById('rsvpForm').style.display = 'none';
+    }
+
+    async function submitRSVP(attending) {
+      const name = document.getElementById('rsvpName').value.trim();
+      const count = parseInt(document.getElementById('rsvpCount').value) || 1;
+
+      if (!name) {
+        tip('Please enter your name 🙏');
+        document.getElementById('rsvpName').focus();
+        return;
+      }
+
+      const spinnerId = attending ? 'spinnerAccept' : 'spinnerDecline';
+      document.getElementById(spinnerId).style.display = 'inline-block';
+      setRsvpBusy(true);
+
+      try {
+        const deviceId = getDeviceId();
+        const res = await fetch(`${API_BASE}/rsvp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, guestCount: count, attending, deviceId }),
+        });
+
+        const data = await res.json();
+
+        document.getElementById(spinnerId).style.display = 'none';
+
+        if (res.status === 409) {
+          // Already submitted
+          showAlreadySubmitted(data.rsvp);
+          return;
+        }
+
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        // Success
+        const t = document.getElementById('rsvpThanks');
+        document.getElementById('rsvpForm').style.display = 'none';
+        t.style.display = 'block';
+        t.textContent = attending
+          ? `🙏 Thank you, ${name}! We await you & your ${count} guest(s) with joy.`
+          : `We understand, ${name}. You'll be missed — sending our love!`;
+
+        for (let i = 0; i < 12; i++)
+          setTimeout(() => spawnSparkleAt(window.innerWidth / 2, window.innerHeight / 2), i * 80);
+
+        setTimeout(() => closeRSVP(), 3400);
+      } catch (err) {
+        document.getElementById(spinnerId).style.display = 'none';
+        setRsvpBusy(false);
+        tip('⚠️ Could not save RSVP. Please try again.', 3000);
+        console.error(err);
+      }
+    }
+
+    // Check on page load (silently)
+    window.addEventListener('DOMContentLoaded', () => {
+      // Pre-warm device id so it's ready
+      getDeviceId();
+    });
 
     // ── SCRATCH ──
     (function initScratch() {
