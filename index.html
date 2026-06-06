@@ -1017,8 +1017,8 @@
 
     /* RSVP already submitted banner */
     .rsvp-already {
-      background: linear-gradient(135deg, rgba(107,26,26,.08), rgba(184,150,46,.08));
-      border: 1px solid rgba(184,150,46,.4);
+      background: linear-gradient(135deg, rgba(107, 26, 26, .08), rgba(184, 150, 46, .08));
+      border: 1px solid rgba(184, 150, 46, .4);
       border-radius: 6px;
       padding: 14px 16px;
       margin-bottom: 18px;
@@ -1027,14 +1027,16 @@
       display: none;
     }
 
-    .rsvp-already.show { display: block }
+    .rsvp-already.show {
+      display: block
+    }
 
     /* spinner */
     .rsvp-spinner {
       display: inline-block;
       width: 14px;
       height: 14px;
-      border: 2px solid rgba(240,224,168,.4);
+      border: 2px solid rgba(240, 224, 168, .4);
       border-top-color: var(--gold-pale);
       border-radius: 50%;
       animation: spin .7s linear infinite;
@@ -1043,7 +1045,11 @@
       display: none;
     }
 
-    @keyframes spin { to { transform: rotate(360deg) } }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
 
     /* ── SIGNOFF ── */
     .signoff {
@@ -1433,13 +1439,14 @@
     <div class="rsvp-box">
       <button class="rsvp-close" onclick="closeRSVP()">✕ Close</button>
       <div class="rsvp-title">Join the Celebration</div>
-      <div class="rsvp-sub">Viraj &amp; Devaki's Wedding · 15th July 2026</div>
+      <div class="rsvp-sub">Viraj &amp; Devaki's Wedding · 5th July 2026</div>
       <!-- Already-submitted notice -->
       <div class="rsvp-already" id="rsvpAlready"></div>
       <!-- Form -->
       <div id="rsvpForm">
         <input class="rsvp-input" id="rsvpName" placeholder="Your full name" />
-        <input class="rsvp-input" id="rsvpCount" placeholder="Number of guests (including you)" type="number" min="1" max="20" />
+        <input class="rsvp-input" id="rsvpCount" placeholder="Number of guests (including you)" type="number" min="1"
+          max="20" />
         <div class="rsvp-btns">
           <button class="rsvp-yes" id="btnAccept" onclick="submitRSVP(true)">
             <span class="rsvp-spinner" id="spinnerAccept"></span>✓ Joyfully Accept
