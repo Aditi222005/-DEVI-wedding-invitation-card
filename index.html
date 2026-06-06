@@ -1460,11 +1460,6 @@
     </div>
   </div>
 
-  <!-- Music badge -->
-  <div id="musicBadge" onclick="toggleMusic()">
-    <div class="music-bars" id="musicBars"><span></span><span></span><span></span><span></span><span></span></div>
-    <span class="music-text">SHEHNAI PLAYING</span>
-  </div>
 
   <script>
     // ── PARTICLES ──
@@ -1705,59 +1700,59 @@
       document.body.appendChild(s); setTimeout(() => s.remove(), 800);
     }
 
-    // ── MUSIC ──
-    let audioCtx = null, musicPlaying = false, masterGain = null;
-    function buildShehnai() {
-      if (audioCtx) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      masterGain = audioCtx.createGain();
-      masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-      masterGain.gain.linearRampToValueAtTime(.3, audioCtx.currentTime + 2.5);
-      masterGain.connect(audioCtx.destination);
-      const rev = audioCtx.createConvolver();
-      const len = audioCtx.sampleRate * 2.5, ir = audioCtx.createBuffer(2, len, audioCtx.sampleRate);
-      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++)d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2); }
-      rev.buffer = ir; const rg = audioCtx.createGain(); rg.gain.value = .35;
-      masterGain.connect(rev); rev.connect(rg); rg.connect(audioCtx.destination);
-      const scale = [261.63, 277.18, 293.66, 311.13, 329.63, 349.23, 369.99, 392, 415.30, 440, 466.16, 493.88, 523.25];
-      const melody = [0, 2, 4, 5, 7, 9, 7, 5, 4, 2, 0, 2, 4, 7, 9, 12, 9, 7, 5, 4, 2, 0];
-      let t = audioCtx.currentTime + .5;
-      function playNote(freq, start, dur, vol) {
-        const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
-        const real = new Float32Array([0, 0, .3, .15, .08, .04, .02]), imag = new Float32Array(real.length);
-        osc.setPeriodicWave(audioCtx.createPeriodicWave(real, imag));
-        osc.frequency.setValueAtTime(freq, start);
-        const lfo = audioCtx.createOscillator(), lg = audioCtx.createGain();
-        lfo.frequency.value = 5.5 + Math.random() * .5; lg.gain.value = freq * .012;
-        lfo.connect(lg); lg.connect(osc.frequency); lfo.start(start); lfo.stop(start + dur + .1);
-        g.gain.setValueAtTime(0, start); g.gain.linearRampToValueAtTime(vol, start + .06);
-        g.gain.setValueAtTime(vol, start + dur - .1); g.gain.linearRampToValueAtTime(0, start + dur);
-        osc.connect(g); g.connect(masterGain); osc.start(start); osc.stop(start + dur + .05);
-      }
-      function scheduleMelody() {
-        let cur = t;
-        melody.forEach((idx, i) => {
-          const freq = scale[idx] * (1 + (i > 11 ? .5 : 0));
-          const nd = [.35, .35, .5, .5, .7, .5, .35, .35, .5, .7, .5, .35, .35, .5, .5, .35, .35, .5, .35, .5, .7, .9][i] || .4;
-          playNote(freq, cur, nd, .22); cur += nd + .04;
-        });
-        t = cur + .3; if (musicPlaying) setTimeout(scheduleMelody, (cur - audioCtx.currentTime - 1) * 1000);
-      }
-      musicPlaying = true; scheduleMelody();
-    }
-    function toggleMusic() {
-      if (!audioCtx) { buildShehnai(); return; }
-      if (musicPlaying) {
-        masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1); musicPlaying = false;
-        document.getElementById('musicBars').classList.add('paused');
-        document.querySelector('.music-text').textContent = 'PAUSED'; tip('Music paused');
-      } else {
-        masterGain.gain.linearRampToValueAtTime(.3, audioCtx.currentTime + 1.5); musicPlaying = true;
-        document.getElementById('musicBars').classList.remove('paused');
-        document.querySelector('.music-text').textContent = 'SHEHNAI PLAYING'; buildShehnai(); tip('♪ Shehnai playing');
-      }
-    }
-
+    /*   // ── MUSIC ──
+       let audioCtx = null, musicPlaying = false, masterGain = null;
+       function buildShehnai() {
+         if (audioCtx) return;
+         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+         masterGain = audioCtx.createGain();
+         masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+         masterGain.gain.linearRampToValueAtTime(.3, audioCtx.currentTime + 2.5);
+         masterGain.connect(audioCtx.destination);
+         const rev = audioCtx.createConvolver();
+         const len = audioCtx.sampleRate * 2.5, ir = audioCtx.createBuffer(2, len, audioCtx.sampleRate);
+         for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++)d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2); }
+         rev.buffer = ir; const rg = audioCtx.createGain(); rg.gain.value = .35;
+         masterGain.connect(rev); rev.connect(rg); rg.connect(audioCtx.destination);
+         const scale = [261.63, 277.18, 293.66, 311.13, 329.63, 349.23, 369.99, 392, 415.30, 440, 466.16, 493.88, 523.25];
+         const melody = [0, 2, 4, 5, 7, 9, 7, 5, 4, 2, 0, 2, 4, 7, 9, 12, 9, 7, 5, 4, 2, 0];
+         let t = audioCtx.currentTime + .5;
+         function playNote(freq, start, dur, vol) {
+           const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+           const real = new Float32Array([0, 0, .3, .15, .08, .04, .02]), imag = new Float32Array(real.length);
+           osc.setPeriodicWave(audioCtx.createPeriodicWave(real, imag));
+           osc.frequency.setValueAtTime(freq, start);
+           const lfo = audioCtx.createOscillator(), lg = audioCtx.createGain();
+           lfo.frequency.value = 5.5 + Math.random() * .5; lg.gain.value = freq * .012;
+           lfo.connect(lg); lg.connect(osc.frequency); lfo.start(start); lfo.stop(start + dur + .1);
+           g.gain.setValueAtTime(0, start); g.gain.linearRampToValueAtTime(vol, start + .06);
+           g.gain.setValueAtTime(vol, start + dur - .1); g.gain.linearRampToValueAtTime(0, start + dur);
+           osc.connect(g); g.connect(masterGain); osc.start(start); osc.stop(start + dur + .05);
+         }
+         function scheduleMelody() {
+           let cur = t;
+           melody.forEach((idx, i) => {
+             const freq = scale[idx] * (1 + (i > 11 ? .5 : 0));
+             const nd = [.35, .35, .5, .5, .7, .5, .35, .35, .5, .7, .5, .35, .35, .5, .5, .35, .35, .5, .35, .5, .7, .9][i] || .4;
+             playNote(freq, cur, nd, .22); cur += nd + .04;
+           });
+           t = cur + .3; if (musicPlaying) setTimeout(scheduleMelody, (cur - audioCtx.currentTime - 1) * 1000);
+         }
+         musicPlaying = true; scheduleMelody();
+       }
+       function toggleMusic() {
+         if (!audioCtx) { buildShehnai(); return; }
+         if (musicPlaying) {
+           masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1); musicPlaying = false;
+           document.getElementById('musicBars').classList.add('paused');
+           document.querySelector('.music-text').textContent = 'PAUSED'; tip('Music paused');
+         } else {
+           masterGain.gain.linearRampToValueAtTime(.3, audioCtx.currentTime + 1.5); musicPlaying = true;
+           document.getElementById('musicBars').classList.remove('paused');
+           document.querySelector('.music-text').textContent = 'SHEHNAI PLAYING'; buildShehnai(); tip('♪ Shehnai playing');
+         }
+       }
+   */
     // ── PETALS ──
     const petalColors = ['#c97d8c', '#e8a0b0', '#d4879a', '#f0b8c8', '#a85060'];
     function spawnPetal() {
