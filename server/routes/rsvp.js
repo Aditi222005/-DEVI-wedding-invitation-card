@@ -1,6 +1,7 @@
 const express = require('express');
 const RSVP = require('../models/RSVP');
 const { rebuildExcel, EXCEL_PATH } = require('../utils/excelBuilder');
+const { appendRSVPRow, rebuildSheet } = require('../utils/sheetsBuilder');
 const path = require('path');
 
 const router = express.Router();
@@ -41,9 +42,13 @@ router.post('/', async (req, res) => {
       userAgent: req.headers['user-agent'] || '',
     });
 
-    // Rebuild Excel in background (don't block response)
+    // Get total count for serial number
+    const totalCount = await RSVP.countDocuments();
+
+    // Rebuild local Excel + update Google Sheet in background
     const allRsvps = await RSVP.find({}).sort({ createdAt: 1 });
     rebuildExcel(allRsvps).catch(err => console.error('Excel rebuild error:', err));
+    appendRSVPRow(rsvp, totalCount).catch(err => console.error('Google Sheets error:', err));
 
     return res.status(201).json({
       success: true,
@@ -111,13 +116,25 @@ router.get('/all', async (req, res) => {
 // Admin: download the latest Excel file
 router.get('/download', async (req, res) => {
   try {
-    // Always regenerate fresh
     const allRsvps = await RSVP.find({}).sort({ createdAt: 1 });
     await rebuildExcel(allRsvps);
     return res.download(EXCEL_PATH, 'Viraj_Devaki_RSVP.xlsx');
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Could not generate Excel.' });
+  }
+});
+
+// ── GET /api/rsvp/rebuild-sheet  ─────────────────────────────────────────────
+// Admin: force-sync all MongoDB RSVPs → Google Sheet
+router.get('/rebuild-sheet', async (req, res) => {
+  try {
+    const allRsvps = await RSVP.find({}).sort({ createdAt: 1 });
+    await rebuildSheet(allRsvps);
+    return res.json({ success: true, message: `Sheet rebuilt with ${allRsvps.length} entries.` });
+  } catch (err) {
+    console.error('Sheet rebuild error:', err.message);
+    return res.status(500).json({ error: err.message });
   }
 });
 
