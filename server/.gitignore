@@ -2,4 +2,3 @@ node_modules/
 .env
 data/
 *.xlsx
-google-credentials.json
